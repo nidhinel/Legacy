@@ -126,10 +126,12 @@ class TemperatureDashboard(tk.Tk):
         self.time_var.set(f"Last update: {timestamp.strftime('%H:%M:%S')}")
         self._set_status("Monitoring...", "#a6e3a1")
 
-        # Append to log
+        # Append to log (cap at 200 entries)
         entry = f"[{timestamp.strftime('%H:%M:%S')}]  {temp_c:.2f}°C  /  {temp_f:.2f}°F\n"
         self.log_box.config(state="normal")
         self.log_box.insert("end", entry)
+        if int(self.log_box.index("end-1c").split(".")[0]) > 200:
+            self.log_box.delete("1.0", "2.0")
         self.log_box.see("end")
         self.log_box.config(state="disabled")
 
