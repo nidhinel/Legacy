@@ -4,13 +4,7 @@ import threading
 import time
 from datetime import datetime
 from temperature_sensor import MockTemperatureSensorAPI, TemperatureSensorAPI
-
-# --- Configuration ---
-DEMO_MODE = True
-API_BASE_URL = "https://api.example.com/v1"
-API_KEY = "your_api_key_here"
-SENSOR_ID = "sensor_001"
-POLL_INTERVAL = 2  # seconds
+from config import DEMO_MODE, API_BASE_URL, API_KEY, SENSOR_ID, POLL_INTERVAL
 
 
 class TemperatureDashboard(tk.Tk):

@@ -119,13 +119,7 @@ class MockTemperatureSensorAPI(TemperatureSensorAPI):
 
 
 if __name__ == "__main__":
-    # --- Configuration ---
-    DEMO_MODE = True                               # Set False to use a real API
-    API_BASE_URL = "https://api.example.com/v1"   # Replace with your API URL
-    API_KEY = "your_api_key_here"                  # Replace with your API key
-    SENSOR_ID = "sensor_001"                       # Replace with your sensor ID
-    POLL_INTERVAL = 2                              # Seconds between readings
-    POLL_CYCLES = 8                                # Number of readings to fetch
+    from config import DEMO_MODE, API_BASE_URL, API_KEY, SENSOR_ID, POLL_INTERVAL, POLL_CYCLES
 
     client = MockTemperatureSensorAPI() if DEMO_MODE else TemperatureSensorAPI(
         base_url=API_BASE_URL, api_key=API_KEY
