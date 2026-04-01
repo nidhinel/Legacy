@@ -4,6 +4,7 @@ from temperature_sensor import (
     TemperatureReading,
     MockTemperatureSensorAPI,
     celsius_to_fahrenheit,
+    fahrenheit_to_celsius,
 )
 
 
@@ -19,6 +20,33 @@ class TestCelsiusToFahrenheit(unittest.TestCase):
 
     def test_negative(self):
         self.assertAlmostEqual(celsius_to_fahrenheit(-40), -40.0)
+
+
+class TestFahrenheitToCelsius(unittest.TestCase):
+    def test_freezing(self):
+        self.assertAlmostEqual(fahrenheit_to_celsius(32), 0.0)
+
+    def test_boiling(self):
+        self.assertAlmostEqual(fahrenheit_to_celsius(212), 100.0)
+
+    def test_body_temp(self):
+        self.assertAlmostEqual(fahrenheit_to_celsius(98.6), 37.0, places=1)
+
+    def test_negative(self):
+        self.assertAlmostEqual(fahrenheit_to_celsius(-40), -40.0)
+
+    def test_roundtrip(self):
+        for temp in [-10, 0, 22, 37, 100]:
+            self.assertAlmostEqual(fahrenheit_to_celsius(celsius_to_fahrenheit(temp)), temp, places=6)
+
+
+class TestMockTemperatureBounds(unittest.TestCase):
+    def test_temperature_stays_in_bounds(self):
+        api = MockTemperatureSensorAPI()
+        for _ in range(500):
+            reading = api.get_reading("sensor_001")
+            self.assertGreaterEqual(reading.temperature, 15.0)
+            self.assertLessEqual(reading.temperature, 35.0)
 
 
 class TestTemperatureReading(unittest.TestCase):

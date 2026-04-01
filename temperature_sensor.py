@@ -65,6 +65,10 @@ def celsius_to_fahrenheit(celsius: float) -> float:
     return (celsius * 9 / 5) + 32
 
 
+def fahrenheit_to_celsius(fahrenheit: float) -> float:
+    return (fahrenheit - 32) * 5 / 9
+
+
 def monitor(client: TemperatureSensorAPI, sensor_id: str, interval: int = 5, cycles: int = 10):
     """Poll a sensor at a fixed interval and print readings."""
     logger.info(f"Monitoring sensor '{sensor_id}' every {interval}s for {cycles} cycles...")
@@ -103,6 +107,7 @@ class MockTemperatureSensorAPI(TemperatureSensorAPI):
 
     def get_reading(self, sensor_id: str) -> TemperatureReading:
         self._base_temp += random.uniform(-0.5, 0.5)
+        self._base_temp = max(15.0, min(35.0, self._base_temp))
         return TemperatureReading(
             sensor_id=sensor_id,
             temperature=round(self._base_temp, 2),

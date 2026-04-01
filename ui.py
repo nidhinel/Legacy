@@ -40,10 +40,12 @@ class TemperatureDashboard(tk.Tk):
         self.location_var = tk.StringVar(value="Location: —")
         self.time_var = tk.StringVar(value="Last update: —")
 
-        tk.Label(temp_frame, textvariable=self.temp_c_var,
-                 font=("Helvetica", 52, "bold"), fg="#89b4fa", bg="#1e1e2e").pack()
-        tk.Label(temp_frame, textvariable=self.temp_f_var,
-                 font=("Helvetica", 22), fg="#74c7ec", bg="#1e1e2e").pack()
+        self.temp_c_label = tk.Label(temp_frame, textvariable=self.temp_c_var,
+                                     font=("Helvetica", 52, "bold"), fg="#89b4fa", bg="#1e1e2e")
+        self.temp_c_label.pack()
+        self.temp_f_label = tk.Label(temp_frame, textvariable=self.temp_f_var,
+                                     font=("Helvetica", 22), fg="#74c7ec", bg="#1e1e2e")
+        self.temp_f_label.pack()
         tk.Label(temp_frame, textvariable=self.location_var,
                  font=("Helvetica", 10), fg="#a6adc8", bg="#1e1e2e").pack(pady=(6, 0))
         tk.Label(temp_frame, textvariable=self.time_var,
@@ -77,15 +79,25 @@ class TemperatureDashboard(tk.Tk):
         # History log
         log_frame = tk.Frame(self, bg="#181825", pady=10, padx=10)
         log_frame.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-        tk.Label(log_frame, text="Reading History", font=("Helvetica", 10, "bold"),
-                 fg="#cdd6f4", bg="#181825").pack(anchor="w")
 
-        self.log_box = tk.Text(log_frame, height=8, bg="#181825", fg="#cdd6f4",
+        log_header = tk.Frame(log_frame, bg="#181825")
+        log_header.pack(fill="x")
+        tk.Label(log_header, text="Reading History", font=("Helvetica", 10, "bold"),
+                 fg="#cdd6f4", bg="#181825").pack(side="left")
+        tk.Button(log_header, text="Clear", font=("Helvetica", 8),
+                  bg="#313244", fg="#a6adc8", relief="flat", cursor="hand2",
+                  command=self._clear_log).pack(side="right")
+
+        text_frame = tk.Frame(log_frame, bg="#181825")
+        text_frame.pack(fill="both", expand=True, pady=(4, 0))
+
+        self.log_box = tk.Text(text_frame, height=8, bg="#181825", fg="#cdd6f4",
                                font=("Courier", 10), relief="flat",
                                state="disabled", wrap="none")
-        self.log_box.pack(fill="both", expand=True, pady=(4, 0))
+        self.log_box.pack(side="left", fill="both", expand=True)
 
-        scrollbar = ttk.Scrollbar(log_frame, command=self.log_box.yview)
+        scrollbar = ttk.Scrollbar(text_frame, command=self.log_box.yview)
+        scrollbar.pack(side="right", fill="y")
         self.log_box.configure(yscrollcommand=scrollbar.set)
 
     def start_monitoring(self):
@@ -113,11 +125,23 @@ class TemperatureDashboard(tk.Tk):
                 self.after(0, self._set_status, f"Error: {e}", "#f38ba8")
             time.sleep(POLL_INTERVAL)
 
+    def _temp_color(self, temp_c: float) -> str:
+        if temp_c < 18:
+            return "#74c7ec"   # cool — blue
+        elif temp_c < 26:
+            return "#a6e3a1"   # normal — green
+        elif temp_c < 35:
+            return "#fab387"   # warm — orange
+        return "#f38ba8"       # hot — red
+
     def _update_display(self, temp_c, temp_f, location, timestamp):
+        color = self._temp_color(temp_c)
         self.temp_c_var.set(f"{temp_c:.1f}°C")
         self.temp_f_var.set(f"{temp_f:.1f}°F")
         self.location_var.set(f"Location: {location or '—'}")
         self.time_var.set(f"Last update: {timestamp.strftime('%H:%M:%S')}")
+        self.temp_c_label.config(fg=color)
+        self.temp_f_label.config(fg=color)
         self._set_status("Monitoring...", "#a6e3a1")
 
         # Append to log (cap at 200 entries)
@@ -127,6 +151,11 @@ class TemperatureDashboard(tk.Tk):
         if int(self.log_box.index("end-1c").split(".")[0]) > 200:
             self.log_box.delete("1.0", "2.0")
         self.log_box.see("end")
+        self.log_box.config(state="disabled")
+
+    def _clear_log(self):
+        self.log_box.config(state="normal")
+        self.log_box.delete("1.0", "end")
         self.log_box.config(state="disabled")
 
     def _set_status(self, text, color="#a6adc8"):
