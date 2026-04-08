@@ -2,9 +2,11 @@ import unittest
 from datetime import datetime
 from temperature_sensor import (
     TemperatureReading,
+    SensorAPIBase,
     MockTemperatureSensorAPI,
     celsius_to_fahrenheit,
     fahrenheit_to_celsius,
+    to_celsius,
 )
 
 
@@ -38,6 +40,20 @@ class TestFahrenheitToCelsius(unittest.TestCase):
     def test_roundtrip(self):
         for temp in [-10, 0, 22, 37, 100]:
             self.assertAlmostEqual(fahrenheit_to_celsius(celsius_to_fahrenheit(temp)), temp, places=6)
+
+
+class TestToCelsius(unittest.TestCase):
+    def _reading(self, temp, unit):
+        return TemperatureReading(sensor_id="s1", temperature=temp, unit=unit, timestamp=datetime.now())
+
+    def test_celsius_passthrough(self):
+        self.assertAlmostEqual(to_celsius(self._reading(22.0, "C")), 22.0)
+
+    def test_fahrenheit_converted(self):
+        self.assertAlmostEqual(to_celsius(self._reading(32.0, "F")), 0.0)
+
+    def test_body_temp_f(self):
+        self.assertAlmostEqual(to_celsius(self._reading(98.6, "F")), 37.0, places=1)
 
 
 class TestMockTemperatureBounds(unittest.TestCase):
@@ -76,6 +92,9 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
     def setUp(self):
         self.api = MockTemperatureSensorAPI()
 
+    def test_is_sensor_api_base(self):
+        self.assertIsInstance(self.api, SensorAPIBase)
+
     def test_get_reading_returns_temperature_reading(self):
         reading = self.api.get_reading("sensor_001")
         self.assertIsInstance(reading, TemperatureReading)
@@ -106,6 +125,11 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
 
     def test_close_does_not_raise(self):
         self.api.close()
+
+    def test_context_manager(self):
+        with MockTemperatureSensorAPI() as api:
+            reading = api.get_reading("sensor_001")
+            self.assertIsInstance(reading, TemperatureReading)
 
 
 if __name__ == "__main__":

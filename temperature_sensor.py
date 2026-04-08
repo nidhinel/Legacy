@@ -2,6 +2,7 @@ import requests
 import time
 import random
 import logging
+from abc import ABC, abstractmethod
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional
@@ -22,7 +23,26 @@ class TemperatureReading:
     location: Optional[str] = None
 
 
-class TemperatureSensorAPI:
+class SensorAPIBase(ABC):
+    """Abstract base for temperature sensor API clients."""
+
+    @abstractmethod
+    def get_reading(self, sensor_id: str) -> TemperatureReading: ...
+
+    @abstractmethod
+    def get_all_sensors(self) -> list[dict]: ...
+
+    @abstractmethod
+    def close(self): ...
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+class TemperatureSensorAPI(SensorAPIBase):
     """Client for a remote temperature sensor API."""
 
     def __init__(self, base_url: str, api_key: str, timeout: int = 10):
@@ -69,17 +89,25 @@ def fahrenheit_to_celsius(fahrenheit: float) -> float:
     return (fahrenheit - 32) * 5 / 9
 
 
-def monitor(client: TemperatureSensorAPI, sensor_id: str, interval: int = 5, cycles: int = 10):
+def to_celsius(reading: TemperatureReading) -> float:
+    """Return reading temperature normalised to Celsius."""
+    if reading.unit == "F":
+        return fahrenheit_to_celsius(reading.temperature)
+    return reading.temperature
+
+
+def monitor(client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: int = 10):
     """Poll a sensor at a fixed interval and print readings."""
     logger.info(f"Monitoring sensor '{sensor_id}' every {interval}s for {cycles} cycles...")
 
     for i in range(1, cycles + 1):
         try:
             reading = client.get_reading(sensor_id)
-            temp_f = celsius_to_fahrenheit(reading.temperature) if reading.unit == "C" else reading.temperature
+            temp_c = to_celsius(reading)
+            temp_f = celsius_to_fahrenheit(temp_c)
             logger.info(
                 f"[{i}/{cycles}] Sensor: {reading.sensor_id} | "
-                f"Temp: {reading.temperature:.2f}°{reading.unit} ({temp_f:.2f}°F) | "
+                f"Temp: {temp_c:.2f}°C ({temp_f:.2f}°F) | "
                 f"Time: {reading.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
                 + (f" | Location: {reading.location}" if reading.location else "")
             )
@@ -96,14 +124,11 @@ def monitor(client: TemperatureSensorAPI, sensor_id: str, interval: int = 5, cyc
     logger.info("Monitoring complete.")
 
 
-class MockTemperatureSensorAPI(TemperatureSensorAPI):
+class MockTemperatureSensorAPI(SensorAPIBase):
     """Simulates a remote sensor API for local testing."""
 
     def __init__(self):
-        self.base_url = "mock://localhost"
-        self.session = None
-        self.timeout = 0
-        self._base_temp = 22.0  # starting temperature in Celsius
+        self._base_temp = 22.0
 
     def get_reading(self, sensor_id: str) -> TemperatureReading:
         self._base_temp += random.uniform(-0.5, 0.5)
@@ -133,14 +158,8 @@ if __name__ == "__main__":
     if DEMO_MODE:
         logger.info("Running in DEMO MODE (simulated sensor data)")
 
-    try:
+    with client:
         sensors = client.get_all_sensors()
         if sensors:
             logger.info(f"Available sensors: {[s.get('id') for s in sensors]}")
-
         monitor(client, SENSOR_ID, interval=POLL_INTERVAL, cycles=POLL_CYCLES)
-
-    except requests.exceptions.ConnectionError:
-        logger.error("Could not connect to API. Check your API_BASE_URL and network.")
-    finally:
-        client.close()

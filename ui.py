@@ -2,8 +2,13 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 import time
-from datetime import datetime
-from temperature_sensor import MockTemperatureSensorAPI, TemperatureSensorAPI
+from temperature_sensor import (
+    MockTemperatureSensorAPI,
+    TemperatureSensorAPI,
+    TemperatureReading,
+    celsius_to_fahrenheit,
+    to_celsius,
+)
 from config import DEMO_MODE, API_BASE_URL, API_KEY, SENSOR_ID, POLL_INTERVAL
 
 
@@ -12,12 +17,11 @@ class TemperatureDashboard(tk.Tk):
         super().__init__()
         self.title("Temperature Sensor Dashboard")
         self.geometry("500x520")
-        self.resizable(False, False)
+        self.minsize(400, 460)
         self.configure(bg="#1e1e2e")
 
         self.client = MockTemperatureSensorAPI() if DEMO_MODE else TemperatureSensorAPI(API_BASE_URL, API_KEY)
         self.monitoring = False
-        self.readings = []
 
         self._build_ui()
 
@@ -105,8 +109,7 @@ class TemperatureDashboard(tk.Tk):
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
         self._set_status("Monitoring...", "#a6e3a1")
-        thread = threading.Thread(target=self._poll_loop, daemon=True)
-        thread.start()
+        threading.Thread(target=self._poll_loop, daemon=True).start()
 
     def stop_monitoring(self):
         self.monitoring = False
@@ -118,9 +121,7 @@ class TemperatureDashboard(tk.Tk):
         while self.monitoring:
             try:
                 reading = self.client.get_reading(SENSOR_ID)
-                temp_f = (reading.temperature * 9 / 5) + 32
-                self.after(0, self._update_display, reading.temperature, temp_f,
-                           reading.location, reading.timestamp)
+                self.after(0, self._update_display, reading)
             except Exception as e:
                 self.after(0, self._set_status, f"Error: {e}", "#f38ba8")
             time.sleep(POLL_INTERVAL)
@@ -134,18 +135,19 @@ class TemperatureDashboard(tk.Tk):
             return "#fab387"   # warm — orange
         return "#f38ba8"       # hot — red
 
-    def _update_display(self, temp_c, temp_f, location, timestamp):
+    def _update_display(self, reading: TemperatureReading):
+        temp_c = to_celsius(reading)
+        temp_f = celsius_to_fahrenheit(temp_c)
         color = self._temp_color(temp_c)
+
         self.temp_c_var.set(f"{temp_c:.1f}°C")
         self.temp_f_var.set(f"{temp_f:.1f}°F")
-        self.location_var.set(f"Location: {location or '—'}")
-        self.time_var.set(f"Last update: {timestamp.strftime('%H:%M:%S')}")
+        self.location_var.set(f"Location: {reading.location or '—'}")
+        self.time_var.set(f"Last update: {reading.timestamp.strftime('%H:%M:%S')}")
         self.temp_c_label.config(fg=color)
         self.temp_f_label.config(fg=color)
-        self._set_status("Monitoring...", "#a6e3a1")
 
-        # Append to log (cap at 200 entries)
-        entry = f"[{timestamp.strftime('%H:%M:%S')}]  {temp_c:.2f}°C  /  {temp_f:.2f}°F\n"
+        entry = f"[{reading.timestamp.strftime('%H:%M:%S')}]  {temp_c:.2f}°C  /  {temp_f:.2f}°F\n"
         self.log_box.config(state="normal")
         self.log_box.insert("end", entry)
         if int(self.log_box.index("end-1c").split(".")[0]) > 200:
