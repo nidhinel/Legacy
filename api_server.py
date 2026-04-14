@@ -1,19 +1,37 @@
-from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
-from config import DEMO_MODE, API_BASE_URL, API_KEY, SENSOR_ID
+from config import DEMO_MODE, API_BASE_URL, API_KEY
 from temperature_sensor import (
+    SensorAPIBase,
     MockTemperatureSensorAPI,
     TemperatureSensorAPI,
     celsius_to_fahrenheit,
     to_celsius,
 )
 
-app = FastAPI(title="Temperature Sensor API", version="1.0.0")
 
-_client = MockTemperatureSensorAPI() if DEMO_MODE else TemperatureSensorAPI(API_BASE_URL, API_KEY)
+def make_client() -> SensorAPIBase:
+    if DEMO_MODE:
+        return MockTemperatureSensorAPI()
+    return TemperatureSensorAPI(API_BASE_URL, API_KEY)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.client = make_client()
+    yield
+    app.state.client.close()
+
+
+app = FastAPI(title="Temperature Sensor API", version="1.0.0", lifespan=lifespan)
+
+
+def get_client() -> SensorAPIBase:
+    return app.state.client
 
 
 class ReadingResponse(BaseModel):
@@ -29,17 +47,28 @@ class SensorListResponse(BaseModel):
     sensors: list[dict]
 
 
+class HealthResponse(BaseModel):
+    status: str
+    mode: str
+
+
+@app.get("/health", response_model=HealthResponse)
+def health():
+    """Service health check."""
+    return HealthResponse(status="ok", mode="demo" if DEMO_MODE else "live")
+
+
 @app.get("/sensors", response_model=SensorListResponse)
-def list_sensors():
+def list_sensors(client: SensorAPIBase = Depends(get_client)):
     """List all available sensors."""
-    return SensorListResponse(sensors=_client.get_all_sensors())
+    return SensorListResponse(sensors=client.get_all_sensors())
 
 
 @app.get("/sensors/{sensor_id}/temperature", response_model=ReadingResponse)
-def get_temperature(sensor_id: str):
+def get_temperature(sensor_id: str, client: SensorAPIBase = Depends(get_client)):
     """Get the latest temperature reading for a sensor."""
     try:
-        reading = _client.get_reading(sensor_id)
+        reading = client.get_reading(sensor_id)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
