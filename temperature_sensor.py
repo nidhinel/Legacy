@@ -7,11 +7,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 @dataclass
@@ -149,6 +146,7 @@ class MockTemperatureSensorAPI(SensorAPIBase):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     from config import DEMO_MODE, API_BASE_URL, API_KEY, SENSOR_ID, POLL_INTERVAL, POLL_CYCLES
 
     client = MockTemperatureSensorAPI() if DEMO_MODE else TemperatureSensorAPI(

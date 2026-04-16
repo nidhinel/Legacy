@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Path
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
@@ -65,8 +65,14 @@ def list_sensors(client: SensorAPIBase = Depends(get_client)):
 
 
 @app.get("/sensors/{sensor_id}/temperature", response_model=ReadingResponse)
-def get_temperature(sensor_id: str, client: SensorAPIBase = Depends(get_client)):
+def get_temperature(
+    sensor_id: str = Path(pattern=r"^[\w-]+$", description="Sensor identifier"),
+    client: SensorAPIBase = Depends(get_client),
+):
     """Get the latest temperature reading for a sensor."""
+    known = {s["id"] for s in client.get_all_sensors()}
+    if known and sensor_id not in known:
+        raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
     try:
         reading = client.get_reading(sensor_id)
     except Exception as e:

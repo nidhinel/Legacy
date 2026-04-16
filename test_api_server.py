@@ -62,8 +62,16 @@ class TestGetTemperature(unittest.TestCase):
             self.assertIn(field, body)
 
     def test_sensor_id_matches(self):
-        r = self.client.get("/sensors/sensor_042/temperature")
-        self.assertEqual(r.json()["sensor_id"], "sensor_042")
+        r = self.client.get("/sensors/sensor_001/temperature")
+        self.assertEqual(r.json()["sensor_id"], "sensor_001")
+
+    def test_unknown_sensor_returns_404(self):
+        r = self.client.get("/sensors/sensor_999/temperature")
+        self.assertEqual(r.status_code, 404)
+
+    def test_invalid_sensor_id_returns_422(self):
+        r = self.client.get("/sensors/bad id!/temperature")
+        self.assertEqual(r.status_code, 422)
 
     def test_temperature_f_is_conversion_of_c(self):
         r = self.client.get("/sensors/sensor_001/temperature")

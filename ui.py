@@ -24,6 +24,7 @@ class TemperatureDashboard(tk.Tk):
         self.monitoring = False
 
         self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self):
         # Header
@@ -159,6 +160,11 @@ class TemperatureDashboard(tk.Tk):
         self.log_box.config(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.config(state="disabled")
+
+    def _on_close(self):
+        self.monitoring = False
+        self.client.close()
+        self.destroy()
 
     def _set_status(self, text, color="#a6adc8"):
         self.status_dot.config(fg=color)
