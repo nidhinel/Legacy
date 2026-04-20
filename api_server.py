@@ -7,6 +7,8 @@ from typing import Optional
 from config import DEMO_MODE, API_BASE_URL, API_KEY
 from temperature_sensor import (
     SensorAPIBase,
+    SensorError,
+    SensorNotFoundError,
     MockTemperatureSensorAPI,
     TemperatureSensorAPI,
     celsius_to_fahrenheit,
@@ -75,7 +77,9 @@ def get_temperature(
         raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
     try:
         reading = client.get_reading(sensor_id)
-    except Exception as e:
+    except SensorNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
+    except SensorError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
     temp_c = to_celsius(reading)

@@ -3,6 +3,8 @@ from datetime import datetime
 from temperature_sensor import (
     TemperatureReading,
     SensorAPIBase,
+    SensorError,
+    SensorNotFoundError,
     MockTemperatureSensorAPI,
     celsius_to_fahrenheit,
     fahrenheit_to_celsius,
@@ -130,6 +132,30 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
         with MockTemperatureSensorAPI() as api:
             reading = api.get_reading("sensor_001")
             self.assertIsInstance(reading, TemperatureReading)
+
+
+class TestSensorExceptions(unittest.TestCase):
+    def test_sensor_not_found_is_sensor_error(self):
+        self.assertTrue(issubclass(SensorNotFoundError, SensorError))
+
+    def test_sensor_error_is_exception(self):
+        self.assertTrue(issubclass(SensorError, Exception))
+
+    def test_sensor_not_found_carries_message(self):
+        exc = SensorNotFoundError("sensor_001")
+        self.assertIn("sensor_001", str(exc))
+
+
+class TestMockPerSensorState(unittest.TestCase):
+    def test_two_sensors_have_independent_walks(self):
+        api = MockTemperatureSensorAPI()
+        for _ in range(50):
+            api.get_reading("sensor_A")
+        for _ in range(50):
+            api.get_reading("sensor_B")
+        temp_a = api.get_reading("sensor_A").temperature
+        temp_b = api.get_reading("sensor_B").temperature
+        self.assertNotEqual(temp_a, temp_b)
 
 
 if __name__ == "__main__":

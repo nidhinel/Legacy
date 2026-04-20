@@ -11,6 +11,13 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+class SensorError(Exception):
+    """Raised when a sensor operation fails."""
+
+class SensorNotFoundError(SensorError):
+    """Raised when the requested sensor does not exist."""
+
+
 @dataclass
 class TemperatureReading:
     sensor_id: str
@@ -55,8 +62,17 @@ class TemperatureSensorAPI(SensorAPIBase):
     def get_reading(self, sensor_id: str) -> TemperatureReading:
         """Fetch the latest temperature reading from a sensor."""
         url = f"{self.base_url}/sensors/{sensor_id}/temperature"
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise SensorNotFoundError(sensor_id) from e
+            raise SensorError(str(e)) from e
+        except requests.ConnectionError as e:
+            raise SensorError("Connection failed. Check network or API URL.") from e
+        except requests.RequestException as e:
+            raise SensorError(str(e)) from e
 
         data = response.json()
         return TemperatureReading(
@@ -70,8 +86,11 @@ class TemperatureSensorAPI(SensorAPIBase):
     def get_all_sensors(self) -> list[dict]:
         """List all available sensors."""
         url = f"{self.base_url}/sensors"
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise SensorError(str(e)) from e
         return response.json().get("sensors", [])
 
     def close(self):
@@ -108,10 +127,10 @@ def monitor(client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: in
                 f"Time: {reading.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
                 + (f" | Location: {reading.location}" if reading.location else "")
             )
-        except requests.HTTPError as e:
-            logger.error(f"HTTP error: {e.response.status_code} - {e.response.text}")
-        except requests.ConnectionError:
-            logger.error("Connection failed. Check network or API URL.")
+        except SensorNotFoundError:
+            logger.error(f"Sensor '{sensor_id}' not found.")
+        except SensorError as e:
+            logger.error(f"Sensor error: {e}")
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
 
@@ -125,14 +144,14 @@ class MockTemperatureSensorAPI(SensorAPIBase):
     """Simulates a remote sensor API for local testing."""
 
     def __init__(self):
-        self._base_temp = 22.0
+        self._temps: dict[str, float] = {}
 
     def get_reading(self, sensor_id: str) -> TemperatureReading:
-        self._base_temp += random.uniform(-0.5, 0.5)
-        self._base_temp = max(15.0, min(35.0, self._base_temp))
+        temp = self._temps.get(sensor_id, 22.0) + random.uniform(-0.5, 0.5)
+        self._temps[sensor_id] = max(15.0, min(35.0, temp))
         return TemperatureReading(
             sensor_id=sensor_id,
-            temperature=round(self._base_temp, 2),
+            temperature=round(self._temps[sensor_id], 2),
             unit="C",
             timestamp=datetime.now(),
             location="Lab Room 1 (simulated)",
