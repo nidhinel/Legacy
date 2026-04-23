@@ -26,6 +26,10 @@ class TemperatureReading:
     timestamp: datetime
     location: Optional[str] = None
 
+    def __post_init__(self):
+        if self.unit not in ("C", "F"):
+            raise ValueError(f"unit must be 'C' or 'F', got {self.unit!r}")
+
 
 class SensorAPIBase(ABC):
     """Abstract base for temperature sensor API clients."""
@@ -128,7 +132,8 @@ def monitor(client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: in
                 + (f" | Location: {reading.location}" if reading.location else "")
             )
         except SensorNotFoundError:
-            logger.error(f"Sensor '{sensor_id}' not found.")
+            logger.error(f"Sensor '{sensor_id}' not found. Aborting.")
+            break
         except SensorError as e:
             logger.error(f"Sensor error: {e}")
         except Exception as e:

@@ -63,7 +63,10 @@ def health():
 @app.get("/sensors", response_model=SensorListResponse)
 def list_sensors(client: SensorAPIBase = Depends(get_client)):
     """List all available sensors."""
-    return SensorListResponse(sensors=client.get_all_sensors())
+    try:
+        return SensorListResponse(sensors=client.get_all_sensors())
+    except SensorError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.get("/sensors/{sensor_id}/temperature", response_model=ReadingResponse)

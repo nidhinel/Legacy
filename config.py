@@ -11,6 +11,9 @@ POLL_CYCLES = int(os.environ.get("POLL_CYCLES", "8"))
 if POLL_INTERVAL < 1:
     raise ValueError(f"POLL_INTERVAL must be >= 1, got {POLL_INTERVAL}")
 
+if POLL_CYCLES < 1:
+    raise ValueError(f"POLL_CYCLES must be >= 1, got {POLL_CYCLES}")
+
 if not DEMO_MODE and not API_KEY:
     warnings.warn(
         "DEMO_MODE is false but API_KEY is not set. "

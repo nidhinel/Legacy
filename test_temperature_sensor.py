@@ -89,6 +89,14 @@ class TestTemperatureReading(unittest.TestCase):
         )
         self.assertIsNone(r.location)
 
+    def test_invalid_unit_raises(self):
+        with self.assertRaises(ValueError):
+            TemperatureReading(sensor_id="s1", temperature=20.0, unit="X", timestamp=datetime.now())
+
+    def test_fahrenheit_unit_accepted(self):
+        r = TemperatureReading(sensor_id="s1", temperature=68.0, unit="F", timestamp=datetime.now())
+        self.assertEqual(r.unit, "F")
+
 
 class TestMockTemperatureSensorAPI(unittest.TestCase):
     def setUp(self):
