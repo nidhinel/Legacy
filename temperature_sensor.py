@@ -3,7 +3,7 @@ import time
 import random
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Optional
 
@@ -145,25 +145,30 @@ def monitor(client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: in
     logger.info("Monitoring complete.")
 
 
+_MOCK_SENSORS = ("sensor_001", "sensor_002")
+
+
 class MockTemperatureSensorAPI(SensorAPIBase):
     """Simulates a remote sensor API for local testing."""
 
     def __init__(self):
-        self._temps: dict[str, float] = {}
+        self._temps: dict[str, float] = {s: 22.0 for s in _MOCK_SENSORS}
 
     def get_reading(self, sensor_id: str) -> TemperatureReading:
-        temp = self._temps.get(sensor_id, 22.0) + random.uniform(-0.5, 0.5)
+        if sensor_id not in self._temps:
+            self._temps[sensor_id] = 22.0
+        temp = self._temps[sensor_id] + random.uniform(-0.5, 0.5)
         self._temps[sensor_id] = max(15.0, min(35.0, temp))
         return TemperatureReading(
             sensor_id=sensor_id,
             temperature=round(self._temps[sensor_id], 2),
             unit="C",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             location="Lab Room 1 (simulated)",
         )
 
     def get_all_sensors(self) -> list[dict]:
-        return [{"id": "sensor_001"}, {"id": "sensor_002"}]
+        return [{"id": sid} for sid in self._temps]
 
     def close(self):
         pass

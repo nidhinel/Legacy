@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from temperature_sensor import (
     TemperatureReading,
     SensorAPIBase,
@@ -122,9 +122,9 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
         self.assertGreater(max(readings) - min(readings), 0)
 
     def test_get_reading_timestamp_is_recent(self):
-        before = datetime.now()
+        before = datetime.now(timezone.utc)
         reading = self.api.get_reading("sensor_001")
-        after = datetime.now()
+        after = datetime.now(timezone.utc)
         self.assertGreaterEqual(reading.timestamp, before)
         self.assertLessEqual(reading.timestamp, after)
 

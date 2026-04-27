@@ -6,6 +6,8 @@ from temperature_sensor import (
     MockTemperatureSensorAPI,
     TemperatureSensorAPI,
     TemperatureReading,
+    SensorError,
+    SensorNotFoundError,
     celsius_to_fahrenheit,
     to_celsius,
 )
@@ -123,7 +125,11 @@ class TemperatureDashboard(tk.Tk):
             try:
                 reading = self.client.get_reading(SENSOR_ID)
                 self.after(0, self._update_display, reading)
-            except Exception as e:
+            except SensorNotFoundError:
+                self.after(0, self._set_status, f"Sensor '{SENSOR_ID}' not found", "#f38ba8")
+                self.after(0, self.stop_monitoring)
+                break
+            except (SensorError, Exception) as e:
                 self.after(0, self._set_status, f"Error: {e}", "#f38ba8")
             time.sleep(POLL_INTERVAL)
 
