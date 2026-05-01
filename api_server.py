@@ -75,13 +75,10 @@ def get_temperature(
     client: SensorAPIBase = Depends(get_client),
 ):
     """Get the latest temperature reading for a sensor."""
-    known = {s["id"] for s in client.get_all_sensors()}
-    if known and sensor_id not in known:
-        raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
     try:
         reading = client.get_reading(sensor_id)
-    except SensorNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
+    except SensorNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except SensorError as e:
         raise HTTPException(status_code=502, detail=str(e))
 

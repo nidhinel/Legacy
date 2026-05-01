@@ -24,6 +24,9 @@ class TemperatureDashboard(tk.Tk):
 
         self.client = MockTemperatureSensorAPI() if DEMO_MODE else TemperatureSensorAPI(API_BASE_URL, API_KEY)
         self.monitoring = False
+        self._stop_event = threading.Event()
+        self._min_temp: float | None = None
+        self._max_temp: float | None = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -57,6 +60,11 @@ class TemperatureDashboard(tk.Tk):
                  font=("Helvetica", 10), fg="#a6adc8", bg="#1e1e2e").pack(pady=(6, 0))
         tk.Label(temp_frame, textvariable=self.time_var,
                  font=("Helvetica", 9), fg="#6c7086", bg="#1e1e2e").pack()
+
+        # Min / max stats
+        self.stats_var = tk.StringVar(value="Min: —   Max: —")
+        tk.Label(temp_frame, textvariable=self.stats_var,
+                 font=("Courier", 9), fg="#585b70", bg="#1e1e2e").pack(pady=(2, 0))
 
         # Status indicator
         status_frame = tk.Frame(self, bg="#1e1e2e")
@@ -109,6 +117,10 @@ class TemperatureDashboard(tk.Tk):
 
     def start_monitoring(self):
         self.monitoring = True
+        self._stop_event.clear()
+        self._min_temp = None
+        self._max_temp = None
+        self.stats_var.set("Min: —   Max: —")
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
         self._set_status("Monitoring...", "#a6e3a1")
@@ -116,6 +128,7 @@ class TemperatureDashboard(tk.Tk):
 
     def stop_monitoring(self):
         self.monitoring = False
+        self._stop_event.set()
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
         self._set_status("Stopped", "#f38ba8")
@@ -129,9 +142,9 @@ class TemperatureDashboard(tk.Tk):
                 self.after(0, self._set_status, f"Sensor '{SENSOR_ID}' not found", "#f38ba8")
                 self.after(0, self.stop_monitoring)
                 break
-            except (SensorError, Exception) as e:
+            except Exception as e:
                 self.after(0, self._set_status, f"Error: {e}", "#f38ba8")
-            time.sleep(POLL_INTERVAL)
+            self._stop_event.wait(timeout=POLL_INTERVAL)
 
     def _temp_color(self, temp_c: float) -> str:
         if temp_c < 18:
@@ -147,10 +160,16 @@ class TemperatureDashboard(tk.Tk):
         temp_f = celsius_to_fahrenheit(temp_c)
         color = self._temp_color(temp_c)
 
+        if self._min_temp is None or temp_c < self._min_temp:
+            self._min_temp = temp_c
+        if self._max_temp is None or temp_c > self._max_temp:
+            self._max_temp = temp_c
+
         self.temp_c_var.set(f"{temp_c:.1f}°C")
         self.temp_f_var.set(f"{temp_f:.1f}°F")
         self.location_var.set(f"Location: {reading.location or '—'}")
         self.time_var.set(f"Last update: {reading.timestamp.strftime('%H:%M:%S')}")
+        self.stats_var.set(f"Min: {self._min_temp:.1f}°C   Max: {self._max_temp:.1f}°C")
         self.temp_c_label.config(fg=color)
         self.temp_f_label.config(fg=color)
 

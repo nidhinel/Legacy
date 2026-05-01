@@ -14,8 +14,13 @@ logger.addHandler(logging.NullHandler())
 class SensorError(Exception):
     """Raised when a sensor operation fails."""
 
+
 class SensorNotFoundError(SensorError):
     """Raised when the requested sensor does not exist."""
+
+    def __init__(self, sensor_id: str):
+        self.sensor_id = sensor_id
+        super().__init__(f"Sensor '{sensor_id}' not found")
 
 
 @dataclass
@@ -156,7 +161,7 @@ class MockTemperatureSensorAPI(SensorAPIBase):
 
     def get_reading(self, sensor_id: str) -> TemperatureReading:
         if sensor_id not in self._temps:
-            self._temps[sensor_id] = 22.0
+            raise SensorNotFoundError(sensor_id)
         temp = self._temps[sensor_id] + random.uniform(-0.5, 0.5)
         self._temps[sensor_id] = max(15.0, min(35.0, temp))
         return TemperatureReading(

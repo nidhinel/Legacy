@@ -110,8 +110,13 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
         self.assertIsInstance(reading, TemperatureReading)
 
     def test_get_reading_sensor_id_matches(self):
-        reading = self.api.get_reading("sensor_007")
-        self.assertEqual(reading.sensor_id, "sensor_007")
+        reading = self.api.get_reading("sensor_001")
+        self.assertEqual(reading.sensor_id, "sensor_001")
+
+    def test_get_reading_unknown_sensor_raises(self):
+        with self.assertRaises(SensorNotFoundError) as ctx:
+            self.api.get_reading("sensor_999")
+        self.assertEqual(ctx.exception.sensor_id, "sensor_999")
 
     def test_get_reading_unit_is_celsius(self):
         reading = self.api.get_reading("sensor_001")
@@ -158,11 +163,11 @@ class TestMockPerSensorState(unittest.TestCase):
     def test_two_sensors_have_independent_walks(self):
         api = MockTemperatureSensorAPI()
         for _ in range(50):
-            api.get_reading("sensor_A")
+            api.get_reading("sensor_001")
         for _ in range(50):
-            api.get_reading("sensor_B")
-        temp_a = api.get_reading("sensor_A").temperature
-        temp_b = api.get_reading("sensor_B").temperature
+            api.get_reading("sensor_002")
+        temp_a = api.get_reading("sensor_001").temperature
+        temp_b = api.get_reading("sensor_002").temperature
         self.assertNotEqual(temp_a, temp_b)
 
 
