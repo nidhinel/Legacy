@@ -4,11 +4,13 @@ from temperature_sensor import (
     TemperatureReading,
     SensorAPIBase,
     SensorError,
+    SensorConnectionError,
     SensorNotFoundError,
     MockTemperatureSensorAPI,
     celsius_to_fahrenheit,
     fahrenheit_to_celsius,
     to_celsius,
+    monitor,
 )
 
 
@@ -151,12 +153,42 @@ class TestSensorExceptions(unittest.TestCase):
     def test_sensor_not_found_is_sensor_error(self):
         self.assertTrue(issubclass(SensorNotFoundError, SensorError))
 
+    def test_sensor_connection_error_is_sensor_error(self):
+        self.assertTrue(issubclass(SensorConnectionError, SensorError))
+
     def test_sensor_error_is_exception(self):
         self.assertTrue(issubclass(SensorError, Exception))
 
     def test_sensor_not_found_carries_message(self):
         exc = SensorNotFoundError("sensor_001")
         self.assertIn("sensor_001", str(exc))
+
+
+class TestMonitor(unittest.TestCase):
+    def test_returns_dict_with_readings_and_errors(self):
+        api = MockTemperatureSensorAPI()
+        stats = monitor(api, "sensor_001", interval=0, cycles=3)
+        self.assertEqual(stats["readings"], 3)
+        self.assertEqual(stats["errors"], 0)
+
+    def test_errors_counted_on_sensor_error(self):
+        class _ErrorClient(SensorAPIBase):
+            def get_reading(self, sensor_id):
+                raise SensorError("boom")
+            def get_all_sensors(self):
+                return []
+            def close(self):
+                pass
+
+        stats = monitor(_ErrorClient(), "sensor_001", interval=0, cycles=4)
+        self.assertEqual(stats["readings"], 0)
+        self.assertEqual(stats["errors"], 4)
+
+    def test_aborts_on_sensor_not_found(self):
+        api = MockTemperatureSensorAPI()
+        stats = monitor(api, "sensor_999", interval=0, cycles=5)
+        self.assertEqual(stats["readings"], 0)
+        self.assertEqual(stats["errors"], 0)
 
 
 class TestMockPerSensorState(unittest.TestCase):

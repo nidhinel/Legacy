@@ -185,9 +185,13 @@ class TemperatureDashboard(tk.Tk):
         self.log_box.config(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.config(state="disabled")
+        self._min_temp = None
+        self._max_temp = None
+        self.stats_var.set("Min: —   Max: —")
 
     def _on_close(self):
         self.monitoring = False
+        self._stop_event.set()
         self.client.close()
         self.destroy()
 

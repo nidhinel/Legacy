@@ -8,6 +8,7 @@ from config import DEMO_MODE, API_BASE_URL, API_KEY
 from temperature_sensor import (
     SensorAPIBase,
     SensorError,
+    SensorConnectionError,
     SensorNotFoundError,
     MockTemperatureSensorAPI,
     TemperatureSensorAPI,
@@ -65,6 +66,8 @@ def list_sensors(client: SensorAPIBase = Depends(get_client)):
     """List all available sensors."""
     try:
         return SensorListResponse(sensors=client.get_all_sensors())
+    except SensorConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except SensorError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -79,6 +82,8 @@ def get_temperature(
         reading = client.get_reading(sensor_id)
     except SensorNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except SensorConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except SensorError as e:
         raise HTTPException(status_code=502, detail=str(e))
 

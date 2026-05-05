@@ -23,6 +23,10 @@ class SensorNotFoundError(SensorError):
         super().__init__(f"Sensor '{sensor_id}' not found")
 
 
+class SensorConnectionError(SensorError):
+    """Raised when the sensor API cannot be reached."""
+
+
 @dataclass
 class TemperatureReading:
     sensor_id: str
@@ -79,18 +83,21 @@ class TemperatureSensorAPI(SensorAPIBase):
                 raise SensorNotFoundError(sensor_id) from e
             raise SensorError(str(e)) from e
         except requests.ConnectionError as e:
-            raise SensorError("Connection failed. Check network or API URL.") from e
+            raise SensorConnectionError("Connection failed. Check network or API URL.") from e
         except requests.RequestException as e:
             raise SensorError(str(e)) from e
 
         data = response.json()
-        return TemperatureReading(
-            sensor_id=sensor_id,
-            temperature=data["temperature"],
-            unit=data.get("unit", "C"),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            location=data.get("location"),
-        )
+        try:
+            return TemperatureReading(
+                sensor_id=sensor_id,
+                temperature=float(data["temperature"]),
+                unit=data.get("unit", "C"),
+                timestamp=datetime.fromisoformat(data["timestamp"]),
+                location=data.get("location"),
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            raise SensorError(f"Malformed response from sensor API: {e}") from e
 
     def get_all_sensors(self) -> list[dict]:
         """List all available sensors."""
@@ -98,6 +105,8 @@ class TemperatureSensorAPI(SensorAPIBase):
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
+        except requests.ConnectionError as e:
+            raise SensorConnectionError("Connection failed. Check network or API URL.") from e
         except requests.RequestException as e:
             raise SensorError(str(e)) from e
         return response.json().get("sensors", [])
@@ -121,9 +130,16 @@ def to_celsius(reading: TemperatureReading) -> float:
     return reading.temperature
 
 
-def monitor(client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: int = 10):
-    """Poll a sensor at a fixed interval and print readings."""
+def monitor(
+    client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: int = 10
+) -> dict[str, int]:
+    """Poll a sensor at a fixed interval and log readings.
+
+    Returns {"readings": n, "errors": m} summarising the session.
+    """
     logger.info(f"Monitoring sensor '{sensor_id}' every {interval}s for {cycles} cycles...")
+    readings = 0
+    errors = 0
 
     for i in range(1, cycles + 1):
         try:
@@ -136,18 +152,22 @@ def monitor(client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: in
                 f"Time: {reading.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
                 + (f" | Location: {reading.location}" if reading.location else "")
             )
+            readings += 1
         except SensorNotFoundError:
             logger.error(f"Sensor '{sensor_id}' not found. Aborting.")
             break
         except SensorError as e:
             logger.error(f"Sensor error: {e}")
+            errors += 1
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            errors += 1
 
         if i < cycles:
             time.sleep(interval)
 
-    logger.info("Monitoring complete.")
+    logger.info(f"Monitoring complete. Readings: {readings}, Errors: {errors}")
+    return {"readings": readings, "errors": errors}
 
 
 _MOCK_SENSORS = ("sensor_001", "sensor_002")

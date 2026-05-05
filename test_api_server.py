@@ -1,6 +1,6 @@
 import unittest
 from fastapi.testclient import TestClient
-from temperature_sensor import MockTemperatureSensorAPI
+from temperature_sensor import MockTemperatureSensorAPI, SensorAPIBase, SensorConnectionError
 from api_server import app, get_client
 
 
@@ -9,6 +9,17 @@ def _mock_client():
 
 
 app.dependency_overrides[get_client] = _mock_client
+
+
+class _UnreachableClient(SensorAPIBase):
+    def get_reading(self, sensor_id):
+        raise SensorConnectionError("unreachable")
+
+    def get_all_sensors(self):
+        raise SensorConnectionError("unreachable")
+
+    def close(self):
+        pass
 
 
 class TestHealthEndpoint(unittest.TestCase):
@@ -88,6 +99,23 @@ class TestGetTemperature(unittest.TestCase):
     def test_unit_is_celsius(self):
         r = self.client.get("/sensors/sensor_001/temperature")
         self.assertEqual(r.json()["unit"], "C")
+
+
+class TestSensorUnavailable(unittest.TestCase):
+    def setUp(self):
+        app.dependency_overrides[get_client] = lambda: _UnreachableClient()
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        app.dependency_overrides[get_client] = _mock_client
+
+    def test_get_temperature_returns_503_on_connection_error(self):
+        r = self.client.get("/sensors/sensor_001/temperature")
+        self.assertEqual(r.status_code, 503)
+
+    def test_list_sensors_returns_503_on_connection_error(self):
+        r = self.client.get("/sensors")
+        self.assertEqual(r.status_code, 503)
 
 
 if __name__ == "__main__":
