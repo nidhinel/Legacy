@@ -99,6 +99,14 @@ class TestTemperatureReading(unittest.TestCase):
         r = TemperatureReading(sensor_id="s1", temperature=68.0, unit="F", timestamp=datetime.now())
         self.assertEqual(r.unit, "F")
 
+    def test_infinite_temperature_raises(self):
+        with self.assertRaises(ValueError):
+            TemperatureReading(sensor_id="s1", temperature=float("inf"), unit="C", timestamp=datetime.now())
+
+    def test_nan_temperature_raises(self):
+        with self.assertRaises(ValueError):
+            TemperatureReading(sensor_id="s1", temperature=float("nan"), unit="C", timestamp=datetime.now())
+
 
 class TestMockTemperatureSensorAPI(unittest.TestCase):
     def setUp(self):
@@ -119,6 +127,14 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
         with self.assertRaises(SensorNotFoundError) as ctx:
             self.api.get_reading("sensor_999")
         self.assertEqual(ctx.exception.sensor_id, "sensor_999")
+
+    def test_sensor_001_location(self):
+        reading = self.api.get_reading("sensor_001")
+        self.assertIn("Room 1", reading.location)
+
+    def test_sensor_002_location(self):
+        reading = self.api.get_reading("sensor_002")
+        self.assertIn("Room 2", reading.location)
 
     def test_get_reading_unit_is_celsius(self):
         reading = self.api.get_reading("sensor_001")

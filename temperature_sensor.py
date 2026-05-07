@@ -1,3 +1,4 @@
+import math
 import requests
 import time
 import random
@@ -38,6 +39,8 @@ class TemperatureReading:
     def __post_init__(self):
         if self.unit not in ("C", "F"):
             raise ValueError(f"unit must be 'C' or 'F', got {self.unit!r}")
+        if not math.isfinite(self.temperature):
+            raise ValueError(f"temperature must be finite, got {self.temperature!r}")
 
 
 class SensorAPIBase(ABC):
@@ -171,6 +174,10 @@ def monitor(
 
 
 _MOCK_SENSORS = ("sensor_001", "sensor_002")
+_MOCK_LOCATIONS: dict[str, str] = {
+    "sensor_001": "Lab Room 1 (simulated)",
+    "sensor_002": "Lab Room 2 (simulated)",
+}
 
 
 class MockTemperatureSensorAPI(SensorAPIBase):
@@ -189,7 +196,7 @@ class MockTemperatureSensorAPI(SensorAPIBase):
             temperature=round(self._temps[sensor_id], 2),
             unit="C",
             timestamp=datetime.now(timezone.utc),
-            location="Lab Room 1 (simulated)",
+            location=_MOCK_LOCATIONS.get(sensor_id, f"{sensor_id} (simulated)"),
         )
 
     def get_all_sensors(self) -> list[dict]:

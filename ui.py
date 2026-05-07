@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 import threading
-import time
 from temperature_sensor import (
     MockTemperatureSensorAPI,
     TemperatureSensorAPI,
@@ -27,6 +26,8 @@ class TemperatureDashboard(tk.Tk):
         self._stop_event = threading.Event()
         self._min_temp: float | None = None
         self._max_temp: float | None = None
+        self._read_count: int = 0
+        self._log_lines: int = 0
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -120,6 +121,7 @@ class TemperatureDashboard(tk.Tk):
         self._stop_event.clear()
         self._min_temp = None
         self._max_temp = None
+        self._read_count = 0
         self.stats_var.set("Min: —   Max: —")
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
@@ -160,6 +162,7 @@ class TemperatureDashboard(tk.Tk):
         temp_f = celsius_to_fahrenheit(temp_c)
         color = self._temp_color(temp_c)
 
+        self._read_count += 1
         if self._min_temp is None or temp_c < self._min_temp:
             self._min_temp = temp_c
         if self._max_temp is None or temp_c > self._max_temp:
@@ -172,12 +175,15 @@ class TemperatureDashboard(tk.Tk):
         self.stats_var.set(f"Min: {self._min_temp:.1f}°C   Max: {self._max_temp:.1f}°C")
         self.temp_c_label.config(fg=color)
         self.temp_f_label.config(fg=color)
+        self._set_status(f"Monitoring... ({self._read_count} reads)", "#a6e3a1")
 
         entry = f"[{reading.timestamp.strftime('%H:%M:%S')}]  {temp_c:.2f}°C  /  {temp_f:.2f}°F\n"
         self.log_box.config(state="normal")
         self.log_box.insert("end", entry)
-        if int(self.log_box.index("end-1c").split(".")[0]) > 200:
+        self._log_lines += 1
+        if self._log_lines > 200:
             self.log_box.delete("1.0", "2.0")
+            self._log_lines -= 1
         self.log_box.see("end")
         self.log_box.config(state="disabled")
 
@@ -185,6 +191,7 @@ class TemperatureDashboard(tk.Tk):
         self.log_box.config(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.config(state="disabled")
+        self._log_lines = 0
         self._min_temp = None
         self._max_temp = None
         self.stats_var.set("Min: —   Max: —")

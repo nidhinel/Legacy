@@ -46,8 +46,12 @@ class ReadingResponse(BaseModel):
     timestamp: datetime
 
 
+class SensorInfo(BaseModel):
+    id: str
+
+
 class SensorListResponse(BaseModel):
-    sensors: list[dict]
+    sensors: list[SensorInfo]
 
 
 class HealthResponse(BaseModel):

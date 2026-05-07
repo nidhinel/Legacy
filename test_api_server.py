@@ -57,6 +57,11 @@ class TestListSensors(unittest.TestCase):
         self.assertIsInstance(sensors, list)
         self.assertGreater(len(sensors), 0)
 
+    def test_each_sensor_has_id(self):
+        r = self.client.get("/sensors")
+        for sensor in r.json()["sensors"]:
+            self.assertIn("id", sensor)
+
 
 class TestGetTemperature(unittest.TestCase):
     def setUp(self):
