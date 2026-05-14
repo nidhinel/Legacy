@@ -85,6 +85,8 @@ class TemperatureSensorAPI(SensorAPIBase):
             if e.response.status_code == 404:
                 raise SensorNotFoundError(sensor_id) from e
             raise SensorError(str(e)) from e
+        except requests.Timeout as e:
+            raise SensorConnectionError("Request timed out.") from e
         except requests.ConnectionError as e:
             raise SensorConnectionError("Connection failed. Check network or API URL.") from e
         except requests.RequestException as e:
@@ -108,6 +110,8 @@ class TemperatureSensorAPI(SensorAPIBase):
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
+        except requests.Timeout as e:
+            raise SensorConnectionError("Request timed out.") from e
         except requests.ConnectionError as e:
             raise SensorConnectionError("Connection failed. Check network or API URL.") from e
         except requests.RequestException as e:
@@ -134,7 +138,7 @@ def to_celsius(reading: TemperatureReading) -> float:
 
 
 def monitor(
-    client: SensorAPIBase, sensor_id: str, interval: int = 5, cycles: int = 10
+    client: SensorAPIBase, sensor_id: str, interval: float = 5, cycles: int = 10
 ) -> dict[str, int]:
     """Poll a sensor at a fixed interval and log readings.
 
@@ -173,18 +177,16 @@ def monitor(
     return {"readings": readings, "errors": errors}
 
 
-_MOCK_SENSORS = ("sensor_001", "sensor_002")
-_MOCK_LOCATIONS: dict[str, str] = {
-    "sensor_001": "Lab Room 1 (simulated)",
-    "sensor_002": "Lab Room 2 (simulated)",
-}
-
-
 class MockTemperatureSensorAPI(SensorAPIBase):
     """Simulates a remote sensor API for local testing."""
 
+    _SENSORS: dict[str, str] = {
+        "sensor_001": "Lab Room 1 (simulated)",
+        "sensor_002": "Lab Room 2 (simulated)",
+    }
+
     def __init__(self):
-        self._temps: dict[str, float] = {s: 22.0 for s in _MOCK_SENSORS}
+        self._temps: dict[str, float] = {s: 22.0 for s in self._SENSORS}
 
     def get_reading(self, sensor_id: str) -> TemperatureReading:
         if sensor_id not in self._temps:
@@ -196,11 +198,11 @@ class MockTemperatureSensorAPI(SensorAPIBase):
             temperature=round(self._temps[sensor_id], 2),
             unit="C",
             timestamp=datetime.now(timezone.utc),
-            location=_MOCK_LOCATIONS.get(sensor_id, f"{sensor_id} (simulated)"),
+            location=self._SENSORS.get(sensor_id, f"{sensor_id} (simulated)"),
         )
 
     def get_all_sensors(self) -> list[dict]:
-        return [{"id": sid} for sid in self._temps]
+        return [{"id": sid, "location": self._SENSORS[sid]} for sid in self._temps]
 
     def close(self):
         pass

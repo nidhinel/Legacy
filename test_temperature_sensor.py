@@ -156,6 +156,12 @@ class TestMockTemperatureSensorAPI(unittest.TestCase):
         self.assertIsInstance(sensors, list)
         self.assertTrue(len(sensors) > 0)
 
+    def test_get_all_sensors_includes_location(self):
+        for sensor in self.api.get_all_sensors():
+            self.assertIn("id", sensor)
+            self.assertIn("location", sensor)
+            self.assertIsNotNone(sensor["location"])
+
     def test_close_does_not_raise(self):
         self.api.close()
 

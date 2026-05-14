@@ -48,6 +48,7 @@ class ReadingResponse(BaseModel):
 
 class SensorInfo(BaseModel):
     id: str
+    location: Optional[str] = None
 
 
 class SensorListResponse(BaseModel):

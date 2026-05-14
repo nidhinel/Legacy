@@ -5,7 +5,6 @@ from temperature_sensor import (
     MockTemperatureSensorAPI,
     TemperatureSensorAPI,
     TemperatureReading,
-    SensorError,
     SensorNotFoundError,
     celsius_to_fahrenheit,
     to_celsius,
@@ -133,7 +132,8 @@ class TemperatureDashboard(tk.Tk):
         self._stop_event.set()
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
-        self._set_status("Stopped", "#f38ba8")
+        count_msg = f" ({self._read_count} reads)" if self._read_count else ""
+        self._set_status(f"Stopped{count_msg}", "#f38ba8")
 
     def _poll_loop(self):
         while self.monitoring:
@@ -158,6 +158,8 @@ class TemperatureDashboard(tk.Tk):
         return "#f38ba8"       # hot — red
 
     def _update_display(self, reading: TemperatureReading):
+        if not self.winfo_exists():
+            return
         temp_c = to_celsius(reading)
         temp_f = celsius_to_fahrenheit(temp_c)
         color = self._temp_color(temp_c)

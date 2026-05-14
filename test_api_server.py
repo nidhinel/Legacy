@@ -62,6 +62,11 @@ class TestListSensors(unittest.TestCase):
         for sensor in r.json()["sensors"]:
             self.assertIn("id", sensor)
 
+    def test_each_sensor_has_location(self):
+        r = self.client.get("/sensors")
+        for sensor in r.json()["sensors"]:
+            self.assertIn("location", sensor)
+
 
 class TestGetTemperature(unittest.TestCase):
     def setUp(self):
