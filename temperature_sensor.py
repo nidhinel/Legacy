@@ -1,5 +1,6 @@
 import math
 import requests
+import threading
 import time
 import random
 import logging
@@ -37,6 +38,8 @@ class TemperatureReading:
     location: Optional[str] = None
 
     def __post_init__(self):
+        if not self.sensor_id:
+            raise ValueError("sensor_id must not be empty")
         if self.unit not in ("C", "F"):
             raise ValueError(f"unit must be 'C' or 'F', got {self.unit!r}")
         if not math.isfinite(self.temperature):
@@ -116,7 +119,13 @@ class TemperatureSensorAPI(SensorAPIBase):
             raise SensorConnectionError("Connection failed. Check network or API URL.") from e
         except requests.RequestException as e:
             raise SensorError(str(e)) from e
-        return response.json().get("sensors", [])
+        try:
+            sensors = response.json().get("sensors", [])
+            if not isinstance(sensors, list):
+                raise SensorError("Malformed response: 'sensors' must be a list")
+            return sensors
+        except (KeyError, ValueError, TypeError) as e:
+            raise SensorError(f"Malformed response from sensor API: {e}") from e
 
     def close(self):
         self.session.close()
@@ -138,17 +147,26 @@ def to_celsius(reading: TemperatureReading) -> float:
 
 
 def monitor(
-    client: SensorAPIBase, sensor_id: str, interval: float = 5, cycles: int = 10
+    client: SensorAPIBase,
+    sensor_id: str,
+    interval: float = 5,
+    cycles: int = 10,
+    stop_event: threading.Event | None = None,
 ) -> dict[str, int]:
     """Poll a sensor at a fixed interval and log readings.
 
+    If stop_event is set, the loop exits cleanly at the next interval boundary.
     Returns {"readings": n, "errors": m} summarising the session.
     """
     logger.info(f"Monitoring sensor '{sensor_id}' every {interval}s for {cycles} cycles...")
     readings = 0
     errors = 0
+    _stop = stop_event or threading.Event()
 
     for i in range(1, cycles + 1):
+        if _stop.is_set():
+            logger.info("Monitoring stopped by request.")
+            break
         try:
             reading = client.get_reading(sensor_id)
             temp_c = to_celsius(reading)
@@ -156,7 +174,7 @@ def monitor(
             logger.info(
                 f"[{i}/{cycles}] Sensor: {reading.sensor_id} | "
                 f"Temp: {temp_c:.2f}°C ({temp_f:.2f}°F) | "
-                f"Time: {reading.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+                f"Time: {reading.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}"
                 + (f" | Location: {reading.location}" if reading.location else "")
             )
             readings += 1
@@ -171,7 +189,7 @@ def monitor(
             errors += 1
 
         if i < cycles:
-            time.sleep(interval)
+            _stop.wait(timeout=interval)
 
     logger.info(f"Monitoring complete. Readings: {readings}, Errors: {errors}")
     return {"readings": readings, "errors": errors}

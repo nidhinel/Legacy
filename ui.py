@@ -173,13 +173,13 @@ class TemperatureDashboard(tk.Tk):
         self.temp_c_var.set(f"{temp_c:.1f}°C")
         self.temp_f_var.set(f"{temp_f:.1f}°F")
         self.location_var.set(f"Location: {reading.location or '—'}")
-        self.time_var.set(f"Last update: {reading.timestamp.strftime('%H:%M:%S')}")
+        self.time_var.set(f"Last update: {reading.timestamp.strftime('%H:%M:%S')} UTC")
         self.stats_var.set(f"Min: {self._min_temp:.1f}°C   Max: {self._max_temp:.1f}°C")
         self.temp_c_label.config(fg=color)
         self.temp_f_label.config(fg=color)
         self._set_status(f"Monitoring... ({self._read_count} reads)", "#a6e3a1")
 
-        entry = f"[{reading.timestamp.strftime('%H:%M:%S')}]  {temp_c:.2f}°C  /  {temp_f:.2f}°F\n"
+        entry = f"[{reading.timestamp.strftime('%H:%M:%S')} UTC]  {temp_c:.2f}°C  /  {temp_f:.2f}°F\n"
         self.log_box.config(state="normal")
         self.log_box.insert("end", entry)
         self._log_lines += 1
@@ -194,9 +194,6 @@ class TemperatureDashboard(tk.Tk):
         self.log_box.delete("1.0", "end")
         self.log_box.config(state="disabled")
         self._log_lines = 0
-        self._min_temp = None
-        self._max_temp = None
-        self.stats_var.set("Min: —   Max: —")
 
     def _on_close(self):
         self.monitoring = False

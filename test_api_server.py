@@ -110,6 +110,30 @@ class TestGetTemperature(unittest.TestCase):
         r = self.client.get("/sensors/sensor_001/temperature")
         self.assertEqual(r.json()["unit"], "C")
 
+    def test_unit_normalized_to_celsius_regardless_of_sensor_unit(self):
+        """unit field must always be 'C' even when raw sensor reports Fahrenheit."""
+        from temperature_sensor import TemperatureReading
+        from datetime import datetime, timezone
+
+        class _FahrenheitClient(_UnreachableClient):
+            def get_reading(self, sensor_id):
+                return TemperatureReading(
+                    sensor_id=sensor_id,
+                    temperature=68.0,
+                    unit="F",
+                    timestamp=datetime.now(timezone.utc),
+                )
+            def get_all_sensors(self):
+                return []
+
+        app.dependency_overrides[get_client] = lambda: _FahrenheitClient()
+        client = TestClient(app)
+        r = client.get("/sensors/sensor_001/temperature")
+        app.dependency_overrides[get_client] = _mock_client
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["unit"], "C")
+        self.assertAlmostEqual(r.json()["temperature_c"], 20.0, places=1)
+
 
 class TestSensorUnavailable(unittest.TestCase):
     def setUp(self):

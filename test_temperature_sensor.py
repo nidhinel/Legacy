@@ -1,3 +1,4 @@
+import threading
 import unittest
 from datetime import datetime, timezone
 from temperature_sensor import (
@@ -107,6 +108,10 @@ class TestTemperatureReading(unittest.TestCase):
         with self.assertRaises(ValueError):
             TemperatureReading(sensor_id="s1", temperature=float("nan"), unit="C", timestamp=datetime.now())
 
+    def test_empty_sensor_id_raises(self):
+        with self.assertRaises(ValueError):
+            TemperatureReading(sensor_id="", temperature=20.0, unit="C", timestamp=datetime.now())
+
 
 class TestMockTemperatureSensorAPI(unittest.TestCase):
     def setUp(self):
@@ -211,6 +216,32 @@ class TestMonitor(unittest.TestCase):
         stats = monitor(api, "sensor_999", interval=0, cycles=5)
         self.assertEqual(stats["readings"], 0)
         self.assertEqual(stats["errors"], 0)
+
+
+class TestMonitorStopEvent(unittest.TestCase):
+    def test_stop_event_halts_loop_early(self):
+        api = MockTemperatureSensorAPI()
+        stop = threading.Event()
+        stop.set()
+        stats = monitor(api, "sensor_001", interval=0, cycles=10, stop_event=stop)
+        self.assertEqual(stats["readings"], 0)
+
+    def test_stop_event_mid_run(self):
+        api = MockTemperatureSensorAPI()
+        stop = threading.Event()
+        call_count = 0
+        original = api.get_reading
+
+        def counting_get(sid):
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                stop.set()
+            return original(sid)
+
+        api.get_reading = counting_get
+        stats = monitor(api, "sensor_001", interval=0, cycles=10, stop_event=stop)
+        self.assertLess(stats["readings"], 10)
 
 
 class TestMockPerSensorState(unittest.TestCase):

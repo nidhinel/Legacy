@@ -97,7 +97,7 @@ def get_temperature(
         sensor_id=reading.sensor_id,
         temperature_c=round(temp_c, 2),
         temperature_f=round(celsius_to_fahrenheit(temp_c), 2),
-        unit=reading.unit,
+        unit="C",
         location=reading.location,
         timestamp=reading.timestamp,
     )
