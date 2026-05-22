@@ -135,6 +135,29 @@ class TestGetTemperature(unittest.TestCase):
         self.assertAlmostEqual(r.json()["temperature_c"], 20.0, places=1)
 
 
+class TestGetSensor(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_returns_200(self):
+        r = self.client.get("/sensors/sensor_001")
+        self.assertEqual(r.status_code, 200)
+
+    def test_response_has_id_and_location(self):
+        r = self.client.get("/sensors/sensor_001")
+        body = r.json()
+        self.assertEqual(body["id"], "sensor_001")
+        self.assertIn("location", body)
+
+    def test_unknown_sensor_returns_404(self):
+        r = self.client.get("/sensors/sensor_999")
+        self.assertEqual(r.status_code, 404)
+
+    def test_invalid_sensor_id_returns_422(self):
+        r = self.client.get("/sensors/bad id!")
+        self.assertEqual(r.status_code, 422)
+
+
 class TestSensorUnavailable(unittest.TestCase):
     def setUp(self):
         app.dependency_overrides[get_client] = lambda: _UnreachableClient()
@@ -149,6 +172,10 @@ class TestSensorUnavailable(unittest.TestCase):
 
     def test_list_sensors_returns_503_on_connection_error(self):
         r = self.client.get("/sensors")
+        self.assertEqual(r.status_code, 503)
+
+    def test_get_sensor_returns_503_on_connection_error(self):
+        r = self.client.get("/sensors/sensor_001")
         self.assertEqual(r.status_code, 503)
 
 

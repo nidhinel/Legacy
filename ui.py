@@ -21,8 +21,8 @@ class TemperatureDashboard(tk.Tk):
         self.configure(bg="#1e1e2e")
 
         self.client = MockTemperatureSensorAPI() if DEMO_MODE else TemperatureSensorAPI(API_BASE_URL, API_KEY)
-        self.monitoring = False
         self._stop_event = threading.Event()
+        self._stop_event.set()  # starts in stopped state
         self._min_temp: float | None = None
         self._max_temp: float | None = None
         self._read_count: int = 0
@@ -116,7 +116,6 @@ class TemperatureDashboard(tk.Tk):
         self.log_box.configure(yscrollcommand=scrollbar.set)
 
     def start_monitoring(self):
-        self.monitoring = True
         self._stop_event.clear()
         self._min_temp = None
         self._max_temp = None
@@ -128,7 +127,6 @@ class TemperatureDashboard(tk.Tk):
         threading.Thread(target=self._poll_loop, daemon=True).start()
 
     def stop_monitoring(self):
-        self.monitoring = False
         self._stop_event.set()
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
@@ -136,7 +134,7 @@ class TemperatureDashboard(tk.Tk):
         self._set_status(f"Stopped{count_msg}", "#f38ba8")
 
     def _poll_loop(self):
-        while self.monitoring:
+        while not self._stop_event.is_set():
             try:
                 reading = self.client.get_reading(SENSOR_ID)
                 self.after(0, self._update_display, reading)
@@ -196,7 +194,6 @@ class TemperatureDashboard(tk.Tk):
         self._log_lines = 0
 
     def _on_close(self):
-        self.monitoring = False
         self._stop_event.set()
         self.client.close()
         self.destroy()

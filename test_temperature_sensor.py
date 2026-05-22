@@ -218,6 +218,23 @@ class TestMonitor(unittest.TestCase):
         self.assertEqual(stats["errors"], 0)
 
 
+class TestTemperatureSensorAPIInit(unittest.TestCase):
+    def test_zero_timeout_raises(self):
+        from temperature_sensor import TemperatureSensorAPI
+        with self.assertRaises(ValueError):
+            TemperatureSensorAPI("https://example.com", "key", timeout=0)
+
+    def test_negative_timeout_raises(self):
+        from temperature_sensor import TemperatureSensorAPI
+        with self.assertRaises(ValueError):
+            TemperatureSensorAPI("https://example.com", "key", timeout=-1)
+
+    def test_positive_timeout_accepted(self):
+        from temperature_sensor import TemperatureSensorAPI
+        api = TemperatureSensorAPI("https://example.com", "key", timeout=5)
+        self.assertEqual(api.timeout, 5)
+
+
 class TestMonitorStopEvent(unittest.TestCase):
     def test_stop_event_halts_loop_early(self):
         api = MockTemperatureSensorAPI()

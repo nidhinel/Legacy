@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, Path
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from config import DEMO_MODE, API_BASE_URL, API_KEY
 from temperature_sensor import (
@@ -41,7 +41,7 @@ class ReadingResponse(BaseModel):
     sensor_id: str
     temperature_c: float
     temperature_f: float
-    unit: str
+    unit: Literal["C"]
     location: Optional[str]
     timestamp: datetime
 
@@ -64,6 +64,24 @@ class HealthResponse(BaseModel):
 def health():
     """Service health check."""
     return HealthResponse(status="ok", mode="demo" if DEMO_MODE else "live")
+
+
+@app.get("/sensors/{sensor_id}", response_model=SensorInfo)
+def get_sensor(
+    sensor_id: str = Path(pattern=r"^[\w-]+$", description="Sensor identifier"),
+    client: SensorAPIBase = Depends(get_client),
+):
+    """Get metadata for a specific sensor."""
+    try:
+        sensors = client.get_all_sensors()
+    except SensorConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except SensorError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    for sensor in sensors:
+        if sensor.get("id") == sensor_id:
+            return SensorInfo(**sensor)
+    raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
 
 
 @app.get("/sensors", response_model=SensorListResponse)

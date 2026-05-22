@@ -1,7 +1,6 @@
 import math
 import requests
 import threading
-import time
 import random
 import logging
 from abc import ABC, abstractmethod
@@ -68,7 +67,9 @@ class SensorAPIBase(ABC):
 class TemperatureSensorAPI(SensorAPIBase):
     """Client for a remote temperature sensor API."""
 
-    def __init__(self, base_url: str, api_key: str, timeout: int = 10):
+    def __init__(self, base_url: str, api_key: str, timeout: float = 10):
+        if timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {timeout}")
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({
@@ -85,7 +86,7 @@ class TemperatureSensorAPI(SensorAPIBase):
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
         except requests.HTTPError as e:
-            if e.response.status_code == 404:
+            if e.response is not None and e.response.status_code == 404:
                 raise SensorNotFoundError(sensor_id) from e
             raise SensorError(str(e)) from e
         except requests.Timeout as e:
@@ -113,6 +114,8 @@ class TemperatureSensorAPI(SensorAPIBase):
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
+        except requests.HTTPError as e:
+            raise SensorError(str(e)) from e
         except requests.Timeout as e:
             raise SensorConnectionError("Request timed out.") from e
         except requests.ConnectionError as e:
